@@ -1,0 +1,151 @@
+{
+  "name": "kopia-ui",
+  "version": "1.0.0",
+  "repository": "github:kopia/kopia",
+  "dependencies": {
+    "auto-launch": "^5.0.5",
+    "electron-first-run": "^3.0.0",
+    "electron-is-dev": "^2.0.0",
+    "electron-log": "^4.4.8",
+    "electron-updater": "^5.2.1",
+    "minimist": "^1.2.7",
+    "uuid": "^8.3.2"
+  },
+  "author": {
+    "email": "kopia-pmc@googlegroups.com",
+    "name": "Kopia Authors"
+  },
+  "build": {
+    "productName": "KopiaUI",
+    "appId": "io.kopia.ui",
+    "publish": [
+      {
+        "provider": "github",
+        "vPrefixedTagName": true,
+        "releaseType": "release"
+      }
+    ],
+    "files": [
+      "public/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "public/preload.js",
+        "to": "."
+      },
+      {
+        "from": "resources/${os}",
+        "to": ".",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "directories": {
+      "buildResources": "assets",
+      "output": "../dist/kopia-ui"
+    },
+    "nsis": {
+      "oneClick": false,
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "perMachine": false
+    },
+    "snap": {
+      "publish": [
+        "github"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "extraResources": [
+        {
+          "from": "../dist/kopia_windows_amd64",
+          "to": "server",
+          "filter": [
+            "kopia.exe"
+          ]
+        }
+      ],
+      "sign": "./sign.js",
+      "signingHashAlgorithms": [
+        "sha256"
+      ]
+    },
+    "mac": {
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "category": "public.app-category.utilities",
+      "extraResources": [
+        {
+          "from": "../dist/kopia_darwin_universal",
+          "to": "server",
+          "filter": [
+            "kopia"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "extraResources": [
+        {
+          "from": "../dist/kopia_linux_${arch}",
+          "to": "server",
+          "filter": [
+            "kopia"
+          ]
+        }
+      ]
+    },
+    "afterSign": "notarize.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.26.1",
+    "asar": "^3.2.0",
+    "concurrently": "^7.4.0",
+    "dotenv": "^16.0.3",
+    "electron": "^19.0.8",
+    "electron-builder": "^23.3.3",
+    "electron-notarize": "^1.2.2",
+    "playwright": "^1.28.1",
+    "playwright-core": "^1.28.1"
+  },
+  "homepage": "./",
+  "description": "Fast and secure open source backup.",
+  "license": "Apache-2.0",
+  "main": "public/electron.js",
+  "scripts": {
+    "start": "react-scripts start",
+    "build-html": "react-scripts build",
+    "e2e": "playwright test",
+    "eject": "react-scripts eject",
+    "start-electron": "electron .",
+    "build-electron": "electron-builder",
+    "build-electron-windows": "electron-builder -w --x64",
+    "build-electron-linux": "electron-builder -l",
+    "build-electron-dir": "electron-builder --dir",
+    "start-electron-prebuilt": "ELECTRON_IS_DEV=0 electron .",
+    "dev": "electron ."
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "browserslist": {
+    "production": [
+      "last 1 electron version"
+    ],
+    "development": [
+      "last 1 electron version"
+    ]
+  }
+}
