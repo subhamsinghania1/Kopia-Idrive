@@ -449,7 +449,6 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 
 	c.svc.getProgress().Finish()
 	//subham_create
-	//return c.reportSnapshotStatus(ctx, manifest)
 	return manifest, nil
 }
 

@@ -123,7 +123,6 @@ type commandRestore struct {
 	restoreShallowAtDepth         int32
 	minSizeForPlaceholder         int32
 	snapshotTime                  string
-	//fileList                      string
 
 	restores []restoreSourceTarget
 }
@@ -150,7 +149,6 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
 	cmd.Flag("shallow-minsize", "When doing a shallow restore, write actual files instead of placeholders smaller than this size.").Int32Var(&c.minSizeForPlaceholder)
 	cmd.Flag("snapshot-time", "When using a path as the source, use the latest snapshot available before this date. Default is latest").StringVar(&c.snapshotTime)
-	//	cmd.Flag("file-list", "When using a file list as the source, Read that source file to get multiple source and destination").StringVar(&c.fileList)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
