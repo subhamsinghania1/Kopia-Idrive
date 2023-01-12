@@ -10,9 +10,10 @@ import (
 
 // SourceInfo represents the information about snapshot source.
 type SourceInfo struct {
-	Host     string `json:"host"`
-	UserName string `json:"userName"`
-	Path     string `json:"path"`
+	Host          string `json:"host"`
+	UserName      string `json:"userName"`
+	Path          string `json:"path"`
+	Bkdescription string `json:"bkdescription"`
 }
 
 func (ssi SourceInfo) String() string {

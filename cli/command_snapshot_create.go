@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/virtualfs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -85,6 +86,18 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 //nolint:gocyclo
 func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	sources := c.snapshotCreateSources
+	//Directory or File List Text file
+	for i, dirlist := range sources {
+		FileListPath := PathIfDirOrFileInfoTextFile(dirlist)
+		if FileListPath != "" {
+			sources = append(sources[:i], sources[i+1:]...)
+			fileListLines := ReadFileList(FileListPath)
+			for _, line := range fileListLines {
+				temp := strings.Trim(filepath.Clean(line), "\"")
+				sources = append(sources, temp)
+			}
+		}
+	}
 
 	if err := maybeAutoUpgradeRepository(ctx, rep); err != nil {
 		return errors.Wrap(err, "error upgrading repository")
@@ -112,13 +125,81 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 	}
 
 	u := c.setupUploader(rep)
-
 	var finalErrors []string
-
+	var manifests []*snapshot.Manifest
 	tags, err := getTags(c.snapshotCreateTags)
 	if err != nil {
 		return err
 	}
+
+	//subham_create
+	scanctx, cancelScan := context.WithCancel(ctx)
+
+	defer cancelScan()
+
+	//subham_create
+	u.Progress.UploadStarted()
+	defer u.Progress.UploadFinished()
+
+	var (
+		totalFiles  int
+		totalSizes  int64
+		estimateLog = logging.Module("estimate")
+		fsEntry     fs.Entry
+	)
+	for _, snapshotDir := range sources {
+		dir, err := filepath.Abs(snapshotDir)
+		if err != nil {
+			finalErrors = append(finalErrors, fmt.Sprintf("invalid source: '%s': %s", snapshotDir, err))
+			continue
+		}
+
+		sourceInfo := snapshot.SourceInfo{
+			Path:     filepath.Clean(dir),
+			Host:     rep.ClientOptions().Hostname,
+			UserName: rep.ClientOptions().Username,
+		}
+		policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
+		if err != nil {
+			return errors.Wrap(err, "unable to get policy tree")
+		}
+
+		if c.snapshotCreateStdinFileName != "" {
+			// stdin source will be snapshotted using a virtual static root directory with a single streaming file entry
+			// Create a new static directory with the given name and add a streaming file entry with os.Stdin reader
+			fsEntry = virtualfs.NewStaticDirectory(sourceInfo.Path, []fs.Entry{
+				virtualfs.StreamingFileFromReader(c.snapshotCreateStdinFileName, c.svc.stdin()),
+			})
+
+		} else {
+			fsEntry, err = getLocalFSEntry(ctx, sourceInfo.Path)
+			if err != nil {
+				return nil
+			}
+		}
+
+		switch entry := fsEntry.(type) {
+		case fs.Directory:
+
+			wrapped := u.WrapIgnorefs(estimateLog(ctx), entry, policyTree, false)
+
+			ds, _ := u.ScanDirectory(scanctx, wrapped, policyTree)
+
+			totalFiles += ds.NumFiles
+			totalSizes += ds.TotalFileSize
+
+		case fs.File:
+			totalFiles += 1
+			totalSizes += entry.Size()
+
+		default:
+			return errors.Errorf("unsupported source: %v", sources)
+		}
+	}
+
+	u.Progress.EstimatedDataSize(totalFiles, totalSizes)
+
+	cancelScan()
 
 	for _, snapshotDir := range sources {
 		if u.IsCanceled() {
@@ -137,11 +218,23 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 			Host:     rep.ClientOptions().Hostname,
 			UserName: rep.ClientOptions().Username,
 		}
-
-		if err := c.snapshotSingleSource(ctx, rep, u, sourceInfo, tags); err != nil {
+		//subham_create
+		u.Progress.CompleteUploadingPending()
+		man, err := c.snapshotSingleSource(ctx, rep, u, sourceInfo, tags)
+		if err != nil {
 			finalErrors = append(finalErrors, err.Error())
 		}
+		manifests = append(manifests, man)
 	}
+	//subham_create
+	var totaltime time.Duration
+	for _, manifest := range manifests {
+		c.reportSnapshotStatus(ctx, manifest)
+		totaltime += manifest.EndTime.Sub(manifest.StartTime).Truncate(time.Second)
+	}
+
+	log(ctx).Infof("Created snapshots in  %v", totaltime)
+	//manifest.EndTime.Sub(manifest.StartTime).Truncate(time.Second)
 
 	// ensure we flush at least once in the session to properly close all pending buffers,
 	// otherwise the session will be reported as memory leak.
@@ -260,7 +353,7 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 }
 
 //nolint:gocyclo
-func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
+func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) (*snapshot.Manifest, error) {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
 	var (
@@ -279,25 +372,25 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 	} else {
 		fsEntry, err = getLocalFSEntry(ctx, sourceInfo.Path)
 		if err != nil {
-			return errors.Wrap(err, "unable to get local filesystem entry")
+			return nil, errors.Wrap(err, "unable to get local filesystem entry")
 		}
 	}
 
 	previous, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
 	if err != nil {
-		return errors.Wrap(err, "unable to get policy tree")
+		return nil, errors.Wrap(err, "unable to get policy tree")
 	}
 
 	manifest, err := u.Upload(ctx, fsEntry, policyTree, sourceInfo, previous...)
 	if err != nil {
 		// fail-fast uploads will fail here without recording a manifest, other uploads will
 		// possibly fail later.
-		return errors.Wrap(err, "upload error")
+		return nil, errors.Wrap(err, "upload error")
 	}
 
 	manifest.Description = c.snapshotCreateDescription
@@ -330,33 +423,33 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 	if ignoreIdenticalSnapshot && len(previous) > 0 {
 		if previous[0].RootObjectID() == manifest.RootObjectID() {
 			log(ctx).Infof("\n Not saving snapshot because no files have been changed since previous snapshot")
-			return nil
+			return manifest, nil
 		}
 	}
 
 	if _, err = snapshot.SaveSnapshot(ctx, rep, manifest); err != nil {
-		return errors.Wrap(err, "cannot save manifest")
+		return manifest, errors.Wrap(err, "cannot save manifest")
 	}
 
 	if _, err = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true); err != nil {
-		return errors.Wrap(err, "unable to apply retention policy")
+		return manifest, errors.Wrap(err, "unable to apply retention policy")
 	}
 
 	if setManual {
 		if err = policy.SetManual(ctx, rep, sourceInfo); err != nil {
-			return errors.Wrap(err, "unable to set manual field in scheduling policy for source")
+			return manifest, errors.Wrap(err, "unable to set manual field in scheduling policy for source")
 		}
 	}
 
 	if c.flushPerSource {
 		if ferr := rep.Flush(ctx); ferr != nil {
-			return errors.Wrap(ferr, "flush error")
+			return manifest, errors.Wrap(ferr, "flush error")
 		}
 	}
 
 	c.svc.getProgress().Finish()
-
-	return c.reportSnapshotStatus(ctx, manifest)
+	//subham_create
+	return manifest, nil
 }
 
 func (c *commandSnapshotCreate) reportSnapshotStatus(ctx context.Context, manifest *snapshot.Manifest) error {

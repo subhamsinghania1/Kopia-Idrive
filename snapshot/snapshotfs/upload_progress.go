@@ -55,10 +55,17 @@ type UploadProgress interface {
 
 	// EstimatedDataSize is emitted whenever the size of upload is estimated.
 	EstimatedDataSize(fileCount int, totalBytes int64)
+	//subham_create
+	// CompleteUploadingPending is emitted whenever we need to set uploading true.
+	CompleteUploadingPending()
 }
 
 // NullUploadProgress is an implementation of UploadProgress that does not produce any output.
 type NullUploadProgress struct{}
+
+// subham_create
+// CompleteUploadingPending implements CompleteUploadingPending.
+func (p *NullUploadProgress) CompleteUploadingPending() {}
 
 // UploadStarted implements UploadProgress.
 func (p *NullUploadProgress) UploadStarted() {}

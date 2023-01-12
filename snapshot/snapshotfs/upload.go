@@ -9,7 +9,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -579,7 +578,7 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 	}
 
 	if overrideDir != nil {
-		rootDir = u.wrapIgnorefs(uploadLog(ctx), overrideDir, policyTree, true)
+		rootDir = u.WrapIgnorefs(uploadLog(ctx), overrideDir, policyTree, true)
 	}
 
 	defer u.executeAfterFolderAction(ctx, "after-snapshot-root", policyTree.EffectivePolicy().Actions.AfterSnapshotRoot, localDirPathOrEmpty, &hc)
@@ -1095,7 +1094,7 @@ func uploadDirInternal(
 	defer u.executeAfterFolderAction(ctx, "after-folder", definedActions.AfterFolder, localDirPathOrEmpty, &hc)
 
 	if overrideDir != nil {
-		directory = u.wrapIgnorefs(uploadLog(ctx), overrideDir, policyTree, true)
+		directory = u.WrapIgnorefs(uploadLog(ctx), overrideDir, policyTree, true)
 	}
 
 	if de, err := uploadShallowDirInternal(ctx, directory, u); de != nil || err != nil {
@@ -1204,9 +1203,9 @@ func (u *Uploader) Upload(
 	defer span.End()
 
 	u.traceEnabled = span.IsRecording()
-
-	u.Progress.UploadStarted()
-	defer u.Progress.UploadFinished()
+	//subham_create
+	//u.Progress.UploadStarted()
+	//defer u.Progress.UploadFinished()
 
 	if u.CheckpointInterval > DefaultCheckpointInterval {
 		return nil, errors.Errorf("checkpoint interval cannot be greater than %v", DefaultCheckpointInterval)
@@ -1230,11 +1229,11 @@ func (u *Uploader) Upload(
 
 	s.StartTime = fs.UTCTimestampFromTime(u.repo.Time())
 
-	var scanWG sync.WaitGroup
+	//	var scanWG sync.WaitGroup
 
-	scanctx, cancelScan := context.WithCancel(ctx)
+	// scanctx, cancelScan := context.WithCancel(ctx)
 
-	defer cancelScan()
+	// defer cancelScan()
 
 	switch entry := source.(type) {
 	case fs.Directory:
@@ -1246,24 +1245,25 @@ func (u *Uploader) Upload(
 			}
 		}
 
-		scanWG.Add(1)
+		//	scanWG.Add(1)
+		//	defer scanWG.Done()
+		/*
+			go func() {
+				defer scanWG.Done()
 
-		go func() {
-			defer scanWG.Done()
+				wrapped := u.WrapIgnorefs(estimateLog(ctx), entry, policyTree, false )
 
-			wrapped := u.wrapIgnorefs(estimateLog(ctx), entry, policyTree, false /* reportIgnoreStats */)
+				ds, _ := u.ScanDirectory(scanctx, wrapped, policyTree)
 
-			ds, _ := u.scanDirectory(scanctx, wrapped, policyTree)
-
-			u.Progress.EstimatedDataSize(ds.numFiles, ds.totalFileSize)
-		}()
-
-		wrapped := u.wrapIgnorefs(uploadLog(ctx), entry, policyTree, true /* reportIgnoreStats */)
+				u.Progress.EstimatedDataSize(ds.NumFiles, ds.TotalFileSize)
+			}()
+		*/
+		wrapped := u.WrapIgnorefs(uploadLog(ctx), entry, policyTree, true /* reportIgnoreStats */)
 
 		s.RootEntry, err = u.uploadDirWithCheckpointing(ctx, wrapped, policyTree, previousDirs, sourceInfo)
 
 	case fs.File:
-		u.Progress.EstimatedDataSize(1, entry.Size())
+		//	u.Progress.EstimatedDataSize(1, entry.Size())
 		s.RootEntry, err = u.uploadFileWithCheckpointing(ctx, entry.Name(), entry, policyTree.EffectivePolicy(), sourceInfo)
 
 	default:
@@ -1274,8 +1274,8 @@ func (u *Uploader) Upload(
 		return nil, rootCauseError(err)
 	}
 
-	cancelScan()
-	scanWG.Wait()
+	//cancelScan()
+	//	scanWG.Wait()
 
 	s.IncompleteReason = u.incompleteReason()
 	s.EndTime = fs.UTCTimestampFromTime(u.repo.Time())
@@ -1284,7 +1284,7 @@ func (u *Uploader) Upload(
 	return s, nil
 }
 
-func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, policyTree *policy.Tree, reportIgnoreStats bool) fs.Directory {
+func (u *Uploader) WrapIgnorefs(logger logging.Logger, entry fs.Directory, policyTree *policy.Tree, reportIgnoreStats bool) fs.Directory {
 	if u.DisableIgnoreRules {
 		return entry
 	}

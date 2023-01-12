@@ -20,6 +20,7 @@ const (
 	UsernameLabel = "username"
 	HostnameLabel = "hostname"
 	PathLabel     = "path"
+	Bkdescription = "Bkdescription" // changes
 )
 
 // ErrSnapshotNotFound is returned when a snapshot is not found.
@@ -56,7 +57,7 @@ func ListSources(ctx context.Context, rep repo.Repository) ([]SourceInfo, error)
 }
 
 func sourceInfoFromLabels(labels map[string]string) SourceInfo {
-	return SourceInfo{Host: labels[HostnameLabel], UserName: labels[UsernameLabel], Path: labels[PathLabel]}
+	return SourceInfo{Host: labels[HostnameLabel], UserName: labels[UsernameLabel], Path: labels[PathLabel], Bkdescription: labels[Bkdescription]}
 }
 
 func sourceInfoToLabels(si SourceInfo) map[string]string {
@@ -71,6 +72,11 @@ func sourceInfoToLabels(si SourceInfo) map[string]string {
 
 	if si.Path != "" {
 		m[PathLabel] = si.Path
+	}
+
+	if si.Bkdescription != "" {
+		m[Bkdescription] = si.Bkdescription
+
 	}
 
 	return m
@@ -118,6 +124,10 @@ func SaveSnapshot(ctx context.Context, rep repo.RepositoryWriter, man *Manifest)
 		return "", errors.New("missing username")
 	}
 
+	man.Source.Bkdescription = man.Source.Path
+	//fmt.Println("/nsourcepath")
+	//fmt.Println(man.Source.Path)
+	man.Source.Path = "rama1"
 	if man.Source.Path == "" {
 		return "", errors.New("missing path")
 	}
