@@ -105,6 +105,7 @@ func (p *cliProgress) CachedFile(fname string, numBytes int64) {
 }
 
 func (p *cliProgress) maybeOutput() {
+
 	if !p.uploading.Load() {
 		return
 	}
@@ -211,7 +212,18 @@ func (p *cliProgress) FinishShared() {
 	p.output(defaultColor, "")
 }
 
+// subham_create
 // +checklocksignore.
+func (p *cliProgress) CompleteUploadingPending() {
+	if p.shared {
+		// do nothing
+		return
+	}
+
+	p.uploading.Store(true)
+	p.uploadFinished.Store(false)
+}
+
 func (p *cliProgress) UploadStarted() {
 	if p.shared {
 		// do nothing

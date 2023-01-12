@@ -2,6 +2,7 @@ package cli
 
 import (
 	"archive/zip"
+	"bufio"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -122,6 +123,7 @@ type commandRestore struct {
 	restoreShallowAtDepth         int32
 	minSizeForPlaceholder         int32
 	snapshotTime                  string
+	//fileList                      string
 
 	restores []restoreSourceTarget
 }
@@ -148,6 +150,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
 	cmd.Flag("shallow-minsize", "When doing a shallow restore, write actual files instead of placeholders smaller than this size.").Int32Var(&c.minSizeForPlaceholder)
 	cmd.Flag("snapshot-time", "When using a path as the source, use the latest snapshot available before this date. Default is latest").StringVar(&c.snapshotTime)
+	//	cmd.Flag("file-list", "When using a file list as the source, Read that source file to get multiple source and destination").StringVar(&c.fileList)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -185,7 +188,28 @@ func (c *commandRestore) constructTargetPairs(rep repo.Repository) error {
 	switch tplen, restpslen := len(targetPairs), len(c.restoreTargetPaths); {
 	case tplen == 0 && restpslen == 1:
 		// This means that none of the restoreTargetPaths are placeholders and we
-		// have 1 arg: a source path that should also be used as a destination.
+		// have 1 arg: a source path that should also be used as a destination. Or
+		// This may be a sorce path of text file which contains the source destination info.
+		//subham
+		FileListPath := PathIfDirOrFileInfoTextFile(c.restoreTargetPaths[0])
+		if FileListPath != "" {
+			fileListLines := ReadFileList(FileListPath)
+			//var scrdstpairs = make(map[string]string)
+			for _, line := range fileListLines {
+				scrdst := strings.Split(line, " ")
+
+				if len(scrdst) > 1 {
+					temp := restoreSourceTarget{
+
+						source:        strings.Trim(filepath.Clean(scrdst[0]), "\""),
+						target:        strings.Trim(filepath.Clean(scrdst[1]), "\""),
+						isplaceholder: false,
+					}
+					c.restores = append(c.restores, temp)
+				}
+			}
+			return nil
+		}
 		source := c.restoreTargetPaths[0]
 
 		si, err := snapshot.ParseSourceInfo(source, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
@@ -227,6 +251,28 @@ func (c *commandRestore) constructTargetPairs(rep repo.Repository) error {
 		}
 
 		return nil
+		//subham
+	case tplen == 0 && restpslen > 2:
+		// This means that none of the restoreTargetPaths are placeholders and we
+		// have more than two args: multiple sourceID and a destination directory.
+		absp, err := filepath.Abs(c.restoreTargetPaths[restpslen-1])
+		if err != nil {
+			return errors.Wrapf(err, "restore can't resolve path for %q", c.restoreTargetPaths[1])
+		}
+		for index, p := range c.restoreTargetPaths {
+			if index < restpslen-1 {
+
+				temp := restoreSourceTarget{
+
+					source:        p,
+					target:        absp,
+					isplaceholder: false,
+				}
+				c.restores = append(c.restores, temp)
+			}
+		}
+
+		return nil
 	case tplen == restpslen:
 		// All arguments are placeholders.
 		c.restores = targetPairs
@@ -237,13 +283,37 @@ func (c *commandRestore) constructTargetPairs(rep repo.Repository) error {
 	return errors.Errorf("restore requires a source and targetpath or placeholders")
 }
 
-func (c *commandRestore) restoreOutput(ctx context.Context, rep repo.Repository) (restore.Output, error) {
-	err := c.constructTargetPairs(rep)
-	if err != nil {
-		return nil, err
+// PathIfRestoreInfoTextFile returns the text file path suffix trimed from path or the
+// empty string if path is not a RestoreInfotext file.
+func PathIfDirOrFileInfoTextFile(path string) string {
+	if strings.HasPrefix(path, "file-list=") {
+		return strings.TrimPrefix(path, "file-list=")
 	}
+	return ""
+}
 
-	targetpath := c.restores[0].target
+// comment for function
+func ReadFileList(path string) []string {
+	file, err := os.Open(path)
+	if err != nil {
+		fmt.Printf("Could not open the file due to this %s error \n", err)
+	}
+	fileScanner := bufio.NewScanner(file)
+	fileScanner.Split(bufio.ScanLines)
+	var fileLines []string
+
+	for fileScanner.Scan() {
+		fileLines = append(fileLines, fileScanner.Text())
+	}
+	if err = file.Close(); err != nil {
+		fmt.Printf("Could not close the file due to this %s error \n", err)
+	}
+	return fileLines
+}
+
+func (c *commandRestore) restoreOutput(ctx context.Context, rep repo.Repository, i int) (restore.Output, error) {
+
+	targetpath := c.restores[i].target
 
 	m := c.detectRestoreMode(ctx, c.restoreMode, targetpath)
 	switch m {
@@ -366,12 +436,16 @@ func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo
 }
 
 func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
-	output, oerr := c.restoreOutput(ctx, rep)
-	if oerr != nil {
-		return errors.Wrap(oerr, "unable to initialize output")
+	err := c.constructTargetPairs(rep)
+	if err != nil {
+		return err
 	}
 
-	for _, rstp := range c.restores {
+	for index, rstp := range c.restores {
+		output, oerr := c.restoreOutput(ctx, rep, index)
+		if oerr != nil {
+			return errors.Wrap(oerr, "unable to initialize output")
+		}
 		var rootEntry fs.Entry
 
 		if rstp.isplaceholder {

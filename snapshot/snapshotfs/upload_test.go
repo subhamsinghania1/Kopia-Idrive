@@ -767,12 +767,12 @@ func TestUploadScanStopsOnContextCancel(t *testing.T) {
 		cancel()
 	})
 
-	result, err := u.scanDirectory(scanctx, th.sourceDir, nil)
+	result, err := u.ScanDirectory(scanctx, th.sourceDir, nil)
 	if !errors.Is(err, scanctx.Err()) {
 		t.Fatalf("invalid scan error: %v", err)
 	}
 
-	if result.numFiles == 0 && result.totalFileSize == 0 {
+	if result.NumFiles == 0 && result.TotalFileSize == 0 {
 		t.Fatalf("should have returned partial results, got zeros")
 	}
 }
@@ -795,25 +795,25 @@ func TestUploadScanIgnoresFiles(t *testing.T) {
 	}, policy.DefaultPolicy)
 
 	// no policy
-	result1, err := u.scanDirectory(ctx, th.sourceDir, nil)
+	result1, err := u.ScanDirectory(ctx, th.sourceDir, nil)
 	require.NoError(t, err)
 
-	result2, err := u.scanDirectory(ctx, th.sourceDir, policyTree)
+	result2, err := u.ScanDirectory(ctx, th.sourceDir, policyTree)
 	require.NoError(t, err)
 
-	if result1.numFiles == 0 {
+	if result1.NumFiles == 0 {
 		t.Fatalf("no files scanned")
 	}
 
-	if result2.numFiles == 0 {
+	if result2.NumFiles == 0 {
 		t.Fatalf("no files scanned")
 	}
 
-	if got, want := result2.numFiles, result1.numFiles; got >= want {
+	if got, want := result2.NumFiles, result1.NumFiles; got >= want {
 		t.Fatalf("expected lower number of files %v, wanted %v", got, want)
 	}
 
-	if got, want := result2.totalFileSize, result1.totalFileSize; got >= want {
+	if got, want := result2.TotalFileSize, result1.TotalFileSize; got >= want {
 		t.Fatalf("expected lower file size %v, wanted %v", got, want)
 	}
 }

@@ -522,6 +522,13 @@ func (t *uitaskProgress) UploadStarted() {
 	t.maybeReport()
 }
 
+// subham_create_snapshot
+// UploadStarted is emitted once at the start of an upload.
+func (t *uitaskProgress) CompleteUploadingPending() {
+	t.p.CompleteUploadingPending()
+	t.maybeReport()
+}
+
 // UploadFinished is emitted once at the end of an upload.
 func (t *uitaskProgress) UploadFinished() {
 	t.p.UploadFinished()

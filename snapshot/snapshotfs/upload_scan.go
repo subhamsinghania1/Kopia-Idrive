@@ -10,8 +10,8 @@ import (
 )
 
 type scanResults struct {
-	numFiles      int
-	totalFileSize int64
+	NumFiles      int
+	TotalFileSize int64
 }
 
 func (e *scanResults) Error(ctx context.Context, filename string, err error, isIgnored bool) {}
@@ -20,8 +20,8 @@ func (e *scanResults) Processing(ctx context.Context, pathname string) {}
 
 func (e *scanResults) Stats(ctx context.Context, s *snapshot.Stats, includedFiles, excludedFiles SampleBuckets, excludedDirs []string, final bool) {
 	if final {
-		e.numFiles = int(atomic.LoadInt32(&s.TotalFileCount))
-		e.totalFileSize = atomic.LoadInt64(&s.TotalFileSize)
+		e.NumFiles = int(atomic.LoadInt32(&s.TotalFileCount))
+		e.TotalFileSize = atomic.LoadInt64(&s.TotalFileSize)
 	}
 }
 
@@ -29,7 +29,7 @@ var _ EstimateProgress = (*scanResults)(nil)
 
 // scanDirectory computes the number of files and their total size in a given directory recursively descending
 // into subdirectories. The scan teminates early as soon as the provided context is canceled.
-func (u *Uploader) scanDirectory(ctx context.Context, dir fs.Directory, policyTree *policy.Tree) (scanResults, error) {
+func (u *Uploader) ScanDirectory(ctx context.Context, dir fs.Directory, policyTree *policy.Tree) (scanResults, error) {
 	var res scanResults
 
 	if u.disableEstimation {

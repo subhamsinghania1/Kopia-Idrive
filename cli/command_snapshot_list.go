@@ -211,6 +211,7 @@ func (c *commandSnapshotList) outputManifestGroups(ctx context.Context, rep repo
 		}
 
 		c.out.printStdout("%v%v\n", separator, src)
+		c.out.printStdout("path %v\n", src.Bkdescription)
 
 		separator = "\n"
 		anyOutput = true
