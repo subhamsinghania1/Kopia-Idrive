@@ -8,7 +8,7 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.15.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
 	github.com/alecthomas/kingpin v1.3.8-0.20220615105907-eae6867f4166 // this is pulling master, which is newer than v2
-	github.com/alecthomas/units v0.0.0-20210927113745-59d0afb8317a
+	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137
 	github.com/aws/aws-sdk-go v1.44.157
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
@@ -51,12 +51,12 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.3.0
 	golang.org/x/mod v0.7.0
-	golang.org/x/net v0.2.0
-	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
+	golang.org/x/net v0.7.0
+	golang.org/x/oauth2 v0.5.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/sys v0.3.0
-	golang.org/x/term v0.2.0
-	golang.org/x/text v0.5.0
+	golang.org/x/sys v0.5.0
+	golang.org/x/term v0.5.0
+	golang.org/x/text v0.7.0
 	google.golang.org/api v0.104.0
 	google.golang.org/grpc v1.51.0
 	google.golang.org/protobuf v1.28.1
@@ -87,11 +87,11 @@ require (
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/common v0.37.0
+	github.com/prometheus/common v0.41.0
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/rs/xid v1.4.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
